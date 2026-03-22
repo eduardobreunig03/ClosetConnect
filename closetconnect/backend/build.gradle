@@ -1,0 +1,118 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.5'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'jacoco'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'Demo project for Spring Boot'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.jsoup:jsoup:1.16.1'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// REQUIRED for AuthenticationManager, UsernamePasswordAuthenticationToken, PasswordEncoder, etc.
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	// DB + migrations - Updated Flyway for PostgreSQL 15 support
+	runtimeOnly 'org.postgresql:postgresql'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	runtimeOnly 'com.h2database:h2' // for local/dev if you want
+
+	//  tests
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+
+	// JWT if your JwtService signs real tokens
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+	testImplementation "org.springframework.boot:spring-boot-starter-test"
+  	testImplementation "com.h2database:h2:2.2.224"
+	testImplementation 'com.h2database:h2'
+
+}
+
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
+    finalizedBy 'jacocoTestReport'   // always produce report after tests
+}
+
+/**
+ * Configure Jacoco tasks only if/when they exist (they come from the jacoco plugin).
+ * Using tasks.named(...) avoids "task not found" and "task already exists" flapping.
+ */
+tasks.named('jacocoTestReport', JacocoReport) {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
+    dependsOn tasks.named('jacocoTestReport')
+    violationRules {
+        rule {
+            element = 'BUNDLE'
+            limit {
+                counter = 'LINE'
+                value   = 'COVEREDRATIO'
+                minimum = 0.00   // raise later (e.g., 0.80)
+            }
+        }
+    }
+}
+ 
+
+tasks.named('check') {
+    dependsOn 'jacocoTestCoverageVerification'
+}   
+
+test { finalizedBy jacocoTestReport }
+
+jacocoTestReport {
+  dependsOn test
+  reports {
+    html.required = true
+    xml.required  = true   // for Sonar/CI
+    csv.required  = false
+  }
+}
+
+jacocoTestCoverageVerification {
+  violationRules {
+    rule { limit { minimum = 0.80 } } // optional gate
+  }
+}
+check
